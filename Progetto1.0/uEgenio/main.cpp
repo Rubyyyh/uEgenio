@@ -57,15 +57,18 @@ using namespace std::chrono;
 #define ARM_SERVO5_PIN D11
 
 #define ARM_STEP_GRADI       5
-#define ARM_RITARDO_MS       20
-#define ARM_RITARDO_SLOW_MS  20
+#define ARM_RITARDO_MS       45
+#define ARM_RITARDO_SLOW_MS  45
 #define ARM_PAUSA_MS         100
-#define ARM_LOOP_MAX_CYCLES  4   // comando 5: fa 4 saluti completi poi torna in IDLE
+#define ARM_LOOP_MAX_CYCLES  2  
+
+#define ARM_SEQUENCE_STEP_GRADI      1
+#define ARM_SEQUENCE_RITARDO_MS      20
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HCSR04
 // ─────────────────────────────────────────────────────────────────────────────
-#define OBSTACLE_DIST_CM 30.0f
+#define OBSTACLE_DIST_CM 40.0f
 #define HYSTERESIS_CM    5.0f
 #define SENSOR_READ_MS   100
 
@@ -153,13 +156,13 @@ struct ArmStep {
 };
 
 static const ArmStep armSequence[] = {
-    {90, 45, 170, 90, 30, 600},
-    {90, 45, 170, 90, 60, 30},
-    {90, 45, 130, 90, 60, 30},
-    {30, 45, 130, 90, 60, 30},
-    {30, 45, 170, 90, 60, 30},
-    {30, 45, 170, 90, 30, 30},
-    {90, 90, 90, 90, 30, 3000}
+    {90, 45, 170, 90, 30, 700},
+    {90, 45, 170, 90, 60, 400},
+    {90, 45, 130, 90, 60, 400},
+    {30, 45, 130, 90, 60, 400},
+    {30, 45, 170, 90, 60, 400},
+    {30, 45, 170, 90, 30, 400},
+    {90, 90, 90, 90, 30, 1200}
 };
 
 static const int ARM_SEQUENCE_LEN = sizeof(armSequence) / sizeof(armSequence[0]);
@@ -436,15 +439,25 @@ static void arm_sequence_start(uint32_t now) {
     lastArmStepMs = now;
 }
 
+static void arm_sequence_step_one_servo(int &pos, int target) {
+    if (pos < target) {
+        pos += ARM_SEQUENCE_STEP_GRADI;
+        if (pos > target) pos = target;
+    } else if (pos > target) {
+        pos -= ARM_SEQUENCE_STEP_GRADI;
+        if (pos < target) pos = target;
+    }
+}
+
 static void arm_sequence_step_towards_target(uint32_t now, const ArmStep &s) {
-    if (now - lastArmStepMs < ARM_RITARDO_MS) return;
+    if (now - lastArmStepMs < ARM_SEQUENCE_RITARDO_MS) return;
     lastArmStepMs = now;
 
-    arm_step_one_servo(p1, s.t1);
-    arm_step_one_servo(p2, s.t2);
-    arm_step_one_servo(p3, s.t3);
-    arm_step_one_servo(p4, s.t4);
-    arm_step_one_servo(p5, s.t5);
+    arm_sequence_step_one_servo(p1, s.t1);
+    arm_sequence_step_one_servo(p2, s.t2);
+    arm_sequence_step_one_servo(p3, s.t3);
+    arm_sequence_step_one_servo(p4, s.t4);
+    arm_sequence_step_one_servo(p5, s.t5);
 
     arm_write_current();
 }
@@ -640,7 +653,7 @@ int main() {
     serial_println("IDLE:   1=Happy  2=Sad  3=Kiss+Heart  4=Patrol  5=Braccio loop  7=Sequenza braccio");
     serial_println("PATROL: servo testa posizionale 0 -> 180 -> 0");
     serial_println("ARM:    solo 6=Stop braccio e ritorno in IDLE");
-    serial_println("BUZZER: D4, suona se ostacolo rilevato mentre guarda a destra");
+    serial_println("BUZZER: D4, suona se ostacolo entro 150 cm mentre guarda a sinistra");
     serial_printf("HEAD_STEP=%.1f  HEAD_MS=%d  ARM_STEP=%d  ARM_DELAY=%d", HEAD_SERVO_STEP_DEG, HEAD_SERVO_STEP_MS, ARM_STEP_GRADI, ARM_RITARDO_MS);
     serial_newline();
     serial_newline();
@@ -654,6 +667,7 @@ int main() {
     bool buzzer_alarm_active = false;
     bool buzzer_state = false;
     float last_dist = -1.0f;
+    int invalid_sensor_count = 0;
 
     int near_count = 0;
     int far_count = 0;
@@ -782,6 +796,7 @@ int main() {
             float d = sensor.read_cm_avg(3, 15);
 
             if (d > 0.0f && d < 400.0f) {
+                invalid_sensor_count = 0;
                 last_dist = d;
 
                 if (d < OBSTACLE_DIST_CM) {
@@ -795,7 +810,7 @@ int main() {
                 if (!obstacle_active && near_count >= 2) {
                     obstacle_active = true;
                     obstacle_seen_on_right = patrol_angle_est <= HEAD_SERVO_CENTER_DEG;
-                    buzzer_alarm_active = obstacle_seen_on_right;
+                    buzzer_alarm_active = !obstacle_seen_on_right;
                     lastBuzzerToggleMs = now;
                     buzzer_off(buzzer_state);
                     head_servo_stop();
@@ -813,12 +828,26 @@ int main() {
                     serial_printf(">> VIA LIBERA: %.1f cm -> TESTA RIPARTE", last_dist);
                     serial_newline();
                 }
+            } else {
+                invalid_sensor_count++;
+                last_dist = -1.0f;
+                near_count = 0;
+
+                // Se il sensore non risponde mentre era fermo, non lasciare il robot bloccato per sempre.
+                if (obstacle_active && invalid_sensor_count >= 5) {
+                    obstacle_active = false;
+                    obstacle_seen_on_right = false;
+                    buzzer_alarm_active = false;
+                    far_count = 0;
+                    buzzer_off(buzzer_state);
+                    serial_println(">> HCSR04 NO ECHO: misura non valida, testa libera per sicurezza");
+                }
             }
         }
 
         led = (mode == MODE_PATROL && obstacle_active) ? 1 : 0;
 
-        // BUZZER intermittente se ostacolo visto a destra.
+        // BUZZER intermittente se ostacolo visto a sinistra.
         buzzer_update(now, mode == MODE_PATROL && obstacle_active && buzzer_alarm_active, buzzer_state, lastBuzzerToggleMs);
 
         // ─────────────────────────────────────────────────────────────────────

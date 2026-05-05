@@ -1,5 +1,0 @@
-sounddevice
-numpy
-openai-whisper
-ollama
-pyserial

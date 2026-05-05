@@ -69,10 +69,3 @@ ollama pull qwen3:4b
 python AiMoods.py
 ```
 
-## Pulizia duplicati eseguita
-
-È stato rimosso il file duplicato **identico** del manuale:
-
-- eliminato `Progetto1.0/Manuale.png` (stesso hash di `Manuale.png`).
-
-Gli altri file omonimi (`AiMoods.py`, `requirements.txt`, `setup.bat`) non sono byte-identici e sono quindi stati mantenuti come varianti/versioni.

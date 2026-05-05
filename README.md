@@ -11,16 +11,17 @@ Il repository contiene due parti principali:
 
 ## Struttura cartelle
 
-- `AiMoods.py` → controller vocale/AI lato PC.
-- `requirements.txt` → dipendenze Python.
-- `setup.bat` → setup rapido ambiente Windows (pip, FFmpeg, modello Ollama).
+- `README.md` → documentazione del progetto.
 - `Manuale.png` → manuale visuale del progetto.
 - `Progetto1.0/`
-  - `AiMoods.py`, `requirements.txt`, `setup.bat` → varianti/storico della parte Python.
-  - `uEgenio/main.cpp` → logica firmware principale STM32.
-  - `uEgenio/HCSR04.cpp` + `uEgenio/include/HCSR04.h` → driver ultrasonico HC-SR04.
-  - `uEgenio/mbed_app.json` → configurazione mbed.
-  - `uEgenio/mbed-os.lib` → riferimento libreria mbed-os.
+  - `AiMoods.py` → controller vocale/AI lato PC.
+  - `requirements.txt` → dipendenze Python.
+  - `setup.bat` → setup rapido ambiente Windows (pip, FFmpeg, modello Ollama).
+  - `uEgenio/`
+    - `main.cpp` → logica firmware principale STM32.
+    - `HCSR04.cpp` + `include/HCSR04.h` → driver ultrasonico HC-SR04.
+    - `mbed_app.json` → configurazione mbed.
+    - `mbed-os.lib` → riferimento libreria mbed-os.
 
 ## Manuale (immagine)
 

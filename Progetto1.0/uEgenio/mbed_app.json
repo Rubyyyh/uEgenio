@@ -1,0 +1,31 @@
+{
+    "config": {
+        "hcsr04-trig-pin": {
+            "help": "Pin collegato a TRIG del HC-SR04",
+            "value": "D9"
+        },
+        "hcsr04-echo-pin": {
+            "help": "Pin collegato a ECHO del HC-SR04",
+            "value": "D10"
+        },
+        "hcsr04-max-distance-cm": {
+            "help": "Distanza massima misurabile in cm",
+            "value": "400"
+        }
+    },
+    "target_overrides": {
+        "*": {
+            "platform.stdio-baud-rate": 115200,
+            "platform.stdio-convert-newlines": true
+        },
+        "NUCLEO_F401RE": {
+            "target.printf_lib": "std"
+        },
+        "NUCLEO_F446RE": {
+            "target.printf_lib": "std"
+        },
+        "NUCLEO_L476RG": {
+            "target.printf_lib": "std"
+        }
+    }
+}
